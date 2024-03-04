@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 FIELD_SIZE = 0...9
-MINES_PROB = 0.2
+MINES_PROB = 0.1
 
 class Dot
   attr_reader :has_mine, :x, :y
@@ -24,8 +24,10 @@ class Dot
 end
 
 class Field
-  def initialize array:
-    @array = array
+  def initialize
+    @array = FIELD_SIZE.collect { |x| FIELD_SIZE.collect { |y|
+      d = Dot::new x:,y:, has_mine: rand(0...(1.0 / MINES_PROB).to_i).zero?
+    }}
 
     each_dot { |dot|
       unless dot.has_mine
@@ -94,19 +96,31 @@ class Field
     return if x.nil?
 
     dot = get_dot(x:, y:)
-    if dot.is_revealed
-      puts "Dot #{x} #{y} is already revealed"
-    end
+    return self if dot.is_revealed
+
     dot.is_revealed = true
-    if dot.has_mine && !expect_mine
-      draw
-      puts "Your arms are flying #{rand 1..4} meters in the air!"
-      exit 0
+    if dot.has_mine
+      if expect_mine
+        return self
+      else
+        draw
+        puts "Your arms are flying #{rand 1..4} meters in the air!"
+        exit 1
+      end
     else
-      if dot.num_mines_around.zero? && !dot.has_mine
+      if expect_mine
+        new_field = Field.new
+        new_field.draw
+        puts "You dug the ground for the whole day, now it's a field on the other side of the world!"
+        puts "... and key to look around"
+        gets
+        return new_field
+      end
+      if dot.num_mines_around.zero?
         each_dot_around(dot) { |neigh| reveal(x: neigh.x, y: neigh.y) unless neigh.is_revealed }
       end
     end
+    self
   end
 end
 
@@ -124,13 +138,11 @@ def get_coords
   {x: x, y: y, expect_mine: expect_mine}
 end
 
-field = Field::new array: FIELD_SIZE.collect { |x| FIELD_SIZE.collect { |y|
-  d = Dot::new x:,y:, has_mine: rand(0...(1.0 / MINES_PROB).to_i).zero?
-}}
+field = Field::new
 
 loop {
   field.draw
-  field.reveal **get_coords
+  field = field.reveal **get_coords
   if field.no_mines_left?
     puts "You found all mines, princess Peach is all yours!"
     exit 0
