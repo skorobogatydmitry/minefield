@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 FIELD_SIZE = 0...9
-MINES_PROB = 0.1
+MINES_PROB = 0.2
 
 class Dot
   attr_reader :has_mine, :x, :y
@@ -35,7 +35,7 @@ class Field
   end
 
   def each_dot
-    @array.each { |row| row.each { |dot| yield dot }}
+    @array.inject([]){ |sum, el| sum += el }.each{ |dot| yield dot if block_given? }
   end
 
   def each_dot_around dot
@@ -56,11 +56,33 @@ class Field
   end
 
   def draw
-    # puts "\e[H\e[2J"
+    puts "\e[H\e[2J#{score}\n   #{FIELD_SIZE.to_a.join}\n#{'-' * (FIELD_SIZE.last + 6)}"
     each_dot { |dot|
+      if dot.y.zero?
+        print "#{dot.x} |"
+      end
+
       print dot.to_char
+
+      if dot.y.eql? FIELD_SIZE.last - 1
+        print "| #{dot.x}"
+      end
+
       print "\n" if dot.y.eql? FIELD_SIZE.last - 1
     }
+    puts '-' * (FIELD_SIZE.last + 6)
+  end
+
+  def score
+    "Mines (revealed / total): #{mines_revealed} / #{mines_total}"
+  end
+
+  def mines_revealed
+    each_dot.select { |d| d.is_revealed && d.has_mine }.count
+  end
+
+  def mines_total
+    each_dot.select { |d| d.has_mine }.count
   end
 
   def no_mines_left?
@@ -68,17 +90,20 @@ class Field
     return true
   end
 
-  def reveal x:, y:
+  def reveal x:, y:, expect_mine: false
     return if x.nil?
 
     dot = get_dot(x:, y:)
+    if dot.is_revealed
+      puts "Dot #{x} #{y} is already revealed"
+    end
     dot.is_revealed = true
-    if dot.has_mine
+    if dot.has_mine && !expect_mine
       draw
       puts "Your arms are flying #{rand 1..4} meters in the air!"
       exit 0
     else
-      if dot.num_mines_around.zero?
+      if dot.num_mines_around.zero? && !dot.has_mine
         each_dot_around(dot) { |neigh| reveal(x: neigh.x, y: neigh.y) unless neigh.is_revealed }
       end
     end
@@ -86,14 +111,17 @@ class Field
 end
 
 def get_coords
-  print "Enter cell to reveal (x y): "
+  print "Enter cell to reveal (x y [m]): "
   coord = gets.strip
-  x, y = coord.split(' ').collect &:to_i
+  x, y, expect_mine = coord.split(' ')
+  x = x.to_i
+  y = y.to_i
+  expect_mine = expect_mine ? true : false
   unless FIELD_SIZE.include?(x) && FIELD_SIZE.include?(y)
-    puts "Coordinates #{x} / #{y} are wrong, both should be in #{FIELD_SIZE}"
+    puts "Coordinates '#{coord}' are wrong, both numbers should be within #{FIELD_SIZE}"
     return {x: nil, y: nil}
   end
-  {x: x, y: y}
+  {x: x, y: y, expect_mine: expect_mine}
 end
 
 field = Field::new array: FIELD_SIZE.collect { |x| FIELD_SIZE.collect { |y|
