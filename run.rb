@@ -1,7 +1,10 @@
 #!/usr/bin/env ruby
 
-FIELD_SIZE = 0...9
-MINES_PROB = 0.1
+require 'io/console'
+require 'tty-reader'
+
+FIELD_SIZE = 0...10
+MINES_PROB = 0.2
 
 class Dot
   attr_reader :has_mine, :x, :y
@@ -16,10 +19,45 @@ class Dot
 
   def to_char
     if is_revealed
-      has_mine ? '*' : num_mines_around.zero? ? ' ' : num_mines_around
+      has_mine ? 'X' : num_mines_around.zero? ? ' ' : num_mines_around
     else
-      '#'
+      '▒'
     end
+  end
+
+  def eql? other
+    @x.eql?(other.x) && @y.eql?(other.y)
+  end
+end
+
+class Cursor < Dot
+  attr_accessor :x, :y
+  def initialize
+    super x:FIELD_SIZE.to_a.sample, y:FIELD_SIZE.to_a.sample, has_mine:false
+  end
+
+  def to_char
+    '?'
+  end
+
+  def is_revealed
+    @is_revealed = !@is_revealed
+  end
+
+  def up
+    @x-=1 if @x > 0
+  end
+
+  def down
+    @x+=1 if @x < FIELD_SIZE.max
+  end
+
+  def left
+    @y-=1 if @y > 0
+  end
+
+  def right
+    @y+=1 if @y < FIELD_SIZE.max
   end
 end
 
@@ -34,6 +72,8 @@ class Field
         dot.num_mines_around = each_dot_around(dot).select(&:has_mine).size
       end
     }
+
+    @cursor = Cursor::new
   end
 
   def each_dot
@@ -58,25 +98,21 @@ class Field
   end
 
   def draw
-    puts "\e[H\e[2J#{score}\n   #{FIELD_SIZE.to_a.join}\n#{'-' * (FIELD_SIZE.last + 6)}"
+    puts "\e[H\e[2J#{score}\n┏#{'-' * (FIELD_SIZE.last + 2)}┓   Brochure in your pocket tells:"
     each_dot { |dot|
-      if dot.y.zero?
-        print "#{dot.x} |"
-      end
+      print "┃ " if dot.y.zero?
 
-      print dot.to_char
+      print (dot.eql?(@cursor) && @cursor.is_revealed ? @cursor : dot).to_char
 
-      if dot.y.eql? FIELD_SIZE.last - 1
-        print "| #{dot.x}"
-      end
+      print " ┃ #{dot.x}   #{controls[dot.x]}\n" if dot.y.eql? FIELD_SIZE.max
 
-      print "\n" if dot.y.eql? FIELD_SIZE.last - 1
     }
-    puts '-' * (FIELD_SIZE.last + 6)
+    puts "┗#{'-' * (FIELD_SIZE.last + 2)}┛"
+    puts controls[FIELD_SIZE.last] if controls.size > FIELD_SIZE.size
   end
 
   def score
-    "Mines (revealed / total): #{mines_revealed} / #{mines_total}"
+    "#{mines_revealed} mines out of #{mines_total} are in your bag "
   end
 
   def mines_revealed
@@ -92,10 +128,12 @@ class Field
     return true
   end
 
-  def reveal x:, y:, expect_mine: false
-    return if x.nil?
+  def turn
+    expect_mine = get_cmd
+    expect_mine.nil? ? self : reveal(get_dot(x:@cursor.x, y:@cursor.y), expect_mine:)
+  end
 
-    dot = get_dot(x:, y:)
+  def reveal dot, expect_mine: false
     return self if dot.is_revealed
 
     dot.is_revealed = true
@@ -103,8 +141,9 @@ class Field
       if expect_mine
         return self
       else
+        @cursor.is_revealed = true
         draw
-        puts "Your arms are flying #{rand 1..4} meters in the air!"
+        puts "You are torn apart by a mine\n  ... last thing you see is another drop bot piercing clouds"
         exit 1
       end
     else
@@ -112,39 +151,52 @@ class Field
         new_field = Field.new
         new_field.draw
         puts "You dug the ground for the whole day, now it's a field on the other side of the world!"
-        puts "... and key to look around"
-        gets
+        puts "... any key to look around"
+        TTY::Reader.new.read_keypress
         return new_field
       end
       if dot.num_mines_around.zero?
-        each_dot_around(dot) { |neigh| reveal(x: neigh.x, y: neigh.y) unless neigh.is_revealed }
+        each_dot_around(dot) { |neigh| reveal(neigh) unless neigh.is_revealed }
       end
     end
     self
   end
-end
 
-def get_coords
-  print "Enter cell to reveal (x y [m]): "
-  coord = gets.strip
-  x, y, expect_mine = coord.split(' ')
-  x = x.to_i
-  y = y.to_i
-  expect_mine = expect_mine ? true : false
-  unless FIELD_SIZE.include?(x) && FIELD_SIZE.include?(y)
-    puts "Coordinates '#{coord}' are wrong, both numbers should be within #{FIELD_SIZE}"
-    return {x: nil, y: nil}
+  def controls
+    [
+      '* arrows to navigate',
+      '* Space to reveal a cell',
+      '* Enter to claim a mine',
+      '* q to quit the mission'
+    ]
   end
-  {x: x, y: y, expect_mine: expect_mine}
+
+  def get_cmd
+    expect_mine = nil
+    case TTY::Reader.new.read_keypress(nonblock:true, echo:false)
+    when 'q'
+      puts "You cowardly flew away on jetpack back to your spacecraft"
+      exit 0
+    when "\n" then expect_mine = true
+    when " " then expect_mine = false
+    when "\e[A" then @cursor.up
+    when "\e[B" then @cursor.down
+    when "\e[C" then @cursor.right
+    when "\e[D" then @cursor.left
+    end
+    return expect_mine
+  end
 end
 
 field = Field::new
 
 loop {
   field.draw
-  field = field.reveal **get_coords
+  field = field.turn
   if field.no_mines_left?
+    field.draw
     puts "You found all mines, princess Peach is all yours!"
     exit 0
   end
+  sleep 0.4
 }
