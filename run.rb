@@ -3,7 +3,7 @@
 require 'io/console'
 require 'tty-reader'
 
-FIELD_SIZE = 0...10
+FIELD_SIZE = 0...20
 MINES_PROB = 0.2
 
 class Dot
@@ -108,7 +108,7 @@ class Field
 
     }
     puts "┗#{'-' * (FIELD_SIZE.last + 2)}┛"
-    puts controls[FIELD_SIZE.last] if controls.size > FIELD_SIZE.size
+    puts controls[FIELD_SIZE.last..] if controls.size > FIELD_SIZE.size
   end
 
   def score
