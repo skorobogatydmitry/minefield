@@ -51,7 +51,7 @@ class Field
   end
 
   def draw
-    puts "\e[H\e[2J#{score}\n┏#{'┅' * (FIELD_SIZE.last * 2 + 2)}┓   Brochure in your pocket tells:"
+    puts "\e[H\e[2J\n┏#{'┅' * (FIELD_SIZE.last * 2 + 2)}┓   Brochure in your pocket tells:"
     each_dot { |dot|
       print '┃ ' if dot.y.zero?
 
@@ -65,10 +65,6 @@ class Field
     @player.draw
   end
 
-  def score
-    "#{mines_revealed} mines out of #{mines_total} are in your bag "
-  end
-
   def mines_revealed
     each_dot.select { |d| d.is_revealed && d.has_mine }.count
   end
@@ -79,6 +75,11 @@ class Field
 
   def no_mines_left?
     each_dot { |dot| return false if dot.has_mine && !dot.is_revealed }
+    true
+  end
+
+  def revealed?
+    each_dot { |dot| return false unless dot.is_revealed }
     true
   end
 
@@ -111,8 +112,8 @@ class Field
       if expect_mine
         new_field = Field.new player: @player
         new_field.draw
-        puts "You dug the ground for the whole day, now it's a field on the other side of the world!"
-        puts '... any key to look around'
+        puts "You dug the ground for the whole day, now it's a field on the other side of the planet"
+        puts '  ... any key to look around'
         TTY::Reader.new.read_keypress
         return new_field
       end
@@ -136,7 +137,7 @@ class Field
     expect_mine = nil
     case TTY::Reader.new.read_keypress(nonblock: true, echo: false)
     when 'q'
-      puts 'You cowardly flew away on jetpack back to your spacecraft'
+      @player.check_goal
       exit 0
     when "\n" then expect_mine = true
     when ' ' then expect_mine = false
@@ -155,14 +156,9 @@ field = Field.new(player:)
 loop {
   field.draw
   field = field.turn
-  if field.no_mines_left?
+  if field.revealed?
     field.draw
-    if player.goal_reached?
-      puts 'You have found enough mines. It is time to return to return to the flagship!'
-    else
-      puts 'You briefly observed your bagpack, there are not enough mines to return to the ship...'
-      puts 'You should look better, if you survive the discipline'
-    end
+    player.check_goal
     exit 0
   end
   sleep 0.2

@@ -32,4 +32,13 @@ class Player
   def set_goal mines_total:
     @goal ||= mines_total - @hp + 3
   end
+
+  def check_goal
+    if @mines >= @goal
+      puts 'You have found enough mines. It is time to return to return to the flagship!'
+    else
+      puts 'You briefly looked into your backpack, there are not enough mines yet...'
+      puts '  but you cowardly flew away on the jetpack back to your spacecraft'
+    end
+  end
 end
