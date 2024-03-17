@@ -8,7 +8,7 @@ require_relative 'cursor'
 require_relative 'player'
 
 FIELD_SIZE = 0...20
-MINES_PROB = 0.2
+MINES_PROB = 0.1
 
 class Field
   def initialize
@@ -58,6 +58,8 @@ class Field
     }
     puts "┗#{'-' * (FIELD_SIZE.last + 2)}┛"
     puts controls[FIELD_SIZE.last..] if controls.size > FIELD_SIZE.size
+
+    @player.draw
   end
 
   def score
@@ -88,12 +90,19 @@ class Field
     dot.is_revealed = true
     if dot.has_mine
       if expect_mine
+        @player.collect_mine
         return self
       else
-        @player.position.is_revealed = true
-        draw
-        puts "You are torn apart by a mine\n  ... last thing you see is another drop bot piercing clouds"
-        exit 1
+        @player.position.is_revealed = true # to show a mine
+        if @player.damage
+          draw
+          # puts "Mine blows under ... your comrade's drop capsule are you were hurrying to a new position"
+          return self
+        else
+          draw
+          puts "You are torn apart by a mine\n  ... last thing you see is another drop bot piercing clouds"
+          exit 1
+        end
       end
     else
       if expect_mine

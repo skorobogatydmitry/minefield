@@ -11,7 +11,7 @@ class Dot
 
   def to_char
     if is_revealed
-      has_mine ? 'X' : num_mines_around.zero? ? ' ' : num_mines_around
+      has_mine ? '💣' : num_mines_around.zero? ? ' ' : num_mines_around
     else
       '▒'
     end
