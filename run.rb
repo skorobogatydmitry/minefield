@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
 require 'io/console'
 require 'tty-reader'
@@ -12,21 +13,21 @@ MINES_PROB = 0.1
 
 class Field
   def initialize
-    @array = FIELD_SIZE.collect { |x| FIELD_SIZE.collect { |y|
-      d = Dot::new x:,y:, has_mine: rand(0...(1.0 / MINES_PROB).to_i).zero?
-    }}
-
-    each_dot { |dot|
-      unless dot.has_mine
-        dot.num_mines_around = each_dot_around(dot).select(&:has_mine).size
-      end
+    @array = FIELD_SIZE.collect { |x|
+      FIELD_SIZE.collect { |y|
+        Dot.new x:, y:, has_mine: rand(0...(1.0 / MINES_PROB).to_i).zero?
+      }
     }
 
-    @player = Player::new position: Cursor::new
+    each_dot { |dot|
+      dot.num_mines_around = each_dot_around(dot).select(&:has_mine).size unless dot.has_mine
+    }
+
+    @player = Player.new position: Cursor.new
   end
 
   def each_dot
-    @array.inject([]){ |sum, el| sum += el }.each{ |dot| yield dot if block_given? }
+    @array.inject([]) { |sum, el| sum + el }.each { |dot| yield dot if block_given? }
   end
 
   def each_dot_around dot
@@ -34,6 +35,7 @@ class Field
     (-1..1).each { |dx|
       (-1..1).each { |dy|
         next if dx.zero? && dy.zero?
+
         neigh = get_dot(x: dot.x + dx, y: dot.y + dy)
         dots << neigh unless neigh.nil?
       }
@@ -42,19 +44,19 @@ class Field
   end
 
   def get_dot x:, y:
-    return nil if x < 0 || y < 0
+    return nil if x.negative? || y.negative?
+
     @array.at(x)&.at(y)
   end
 
   def draw
     puts "\e[H\e[2J#{score}\n┏#{'-' * (FIELD_SIZE.last + 2)}┓   Brochure in your pocket tells:"
     each_dot { |dot|
-      print "┃ " if dot.y.zero?
+      print '┃ ' if dot.y.zero?
 
-      print (dot.eql?(@player.position) && @player.position.is_revealed ? @player.position : dot).to_char
+      print (dot.overlayed_by @player.position).to_char
 
       print " ┃ #{dot.x}   #{controls[dot.x]}\n" if dot.y.eql? FIELD_SIZE.max
-
     }
     puts "┗#{'-' * (FIELD_SIZE.last + 2)}┛"
     puts controls[FIELD_SIZE.last..] if controls.size > FIELD_SIZE.size
@@ -71,17 +73,17 @@ class Field
   end
 
   def mines_total
-    each_dot.select { |d| d.has_mine }.count
+    each_dot.select(&:has_mine).count
   end
 
   def no_mines_left?
-    each_dot { |dot| return false if (dot.has_mine && !dot.is_revealed) }
-    return true
+    each_dot { |dot| return false if dot.has_mine && !dot.is_revealed }
+    true
   end
 
   def turn
     expect_mine = get_cmd
-    expect_mine.nil? ? self : reveal(get_dot(x:@player.position.x, y:@player.position.y), expect_mine:)
+    expect_mine.nil? ? self : reveal(get_dot(x: @player.position.x, y: @player.position.y), expect_mine:)
   end
 
   def reveal dot, expect_mine: false
@@ -93,23 +95,21 @@ class Field
         @player.collect_mine
         return self
       else
-        @player.position.is_revealed = true # to show a mine
-        if @player.damage
-          draw
-          # puts "Mine blows under ... your comrade's drop capsule are you were hurrying to a new position"
-          return self
-        else
-          draw
-          puts "You are torn apart by a mine\n  ... last thing you see is another drop bot piercing clouds"
-          exit 1
-        end
+        draw
+        return self if @player.damage
+
+        # puts "Mine blows under ... your comrade's drop capsule are you were hurrying to a new position"
+
+        puts "You are torn apart by a mine\n  ... last thing you see is another drop bot piercing clouds"
+        exit 1
+
       end
     else
       if expect_mine
         new_field = Field.new
         new_field.draw
         puts "You dug the ground for the whole day, now it's a field on the other side of the world!"
-        puts "... any key to look around"
+        puts '... any key to look around'
         TTY::Reader.new.read_keypress
         return new_field
       end
@@ -131,30 +131,30 @@ class Field
 
   def get_cmd
     expect_mine = nil
-    case TTY::Reader.new.read_keypress(nonblock:true, echo:false)
+    case TTY::Reader.new.read_keypress(nonblock: true, echo: false)
     when 'q'
-      puts "You cowardly flew away on jetpack back to your spacecraft"
+      puts 'You cowardly flew away on jetpack back to your spacecraft'
       exit 0
     when "\n" then expect_mine = true
-    when " " then expect_mine = false
+    when ' ' then expect_mine = false
     when "\e[A" then @player.position.up
     when "\e[B" then @player.position.down
     when "\e[C" then @player.position.right
     when "\e[D" then @player.position.left
     end
-    return expect_mine
+    expect_mine
   end
 end
 
-field = Field::new
+field = Field.new
 
 loop {
   field.draw
   field = field.turn
   if field.no_mines_left?
     field.draw
-    puts "You found all mines, princess Peach is all yours!"
+    puts 'You found all mines, princess Peach is all yours!'
     exit 0
   end
-  sleep 0.4
+  sleep 0.1
 }

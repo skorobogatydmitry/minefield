@@ -1,0 +1,14 @@
+Layout/LineLength:
+  Max: 150
+
+Style/BlockDelimiters:
+  EnforcedStyle: always_braces
+
+Style/DefWithParentheses:
+  Enabled: false
+
+Style/MethodDefParentheses:
+  EnforcedStyle: require_no_parentheses
+
+Style/MethodCallWithArgsParentheses:
+  EnforcedStyle: omit_parentheses

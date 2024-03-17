@@ -1,13 +1,16 @@
+# frozen_string_literal: true
+
 class Player
   attr_reader :hp, :position
-  def initialize hp: 2, position:
+
+  def initialize position:, hp: 2
     @hp = hp
     @position = position
     @mines = 0
   end
 
   def alive?
-    @hp > 0
+    @hp.positive?
   end
 
   def collect_mine
