@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 class Dot
+  NUMBERS = %w[⠀⠀ ㊀ ㊁ ㊂ ㊃ ㊄ ㊅ ㊆ ㊇]
   attr_reader :has_mine, :x, :y
   attr_accessor :is_revealed, :num_mines_around
 
@@ -17,10 +18,10 @@ class Dot
       if has_mine
         '💣'
       else
-        num_mines_around.zero? ? ' ' : num_mines_around
+        NUMBERS[num_mines_around]
       end
     else
-      '▒'
+      '⬛'
     end
   end
 

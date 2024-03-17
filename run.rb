@@ -8,11 +8,11 @@ require_relative 'dot'
 require_relative 'cursor'
 require_relative 'player'
 
-FIELD_SIZE = 0...20
+FIELD_SIZE = 0...10
 MINES_PROB = 0.1
 
 class Field
-  def initialize
+  def initialize player:
     @array = FIELD_SIZE.collect { |x|
       FIELD_SIZE.collect { |y|
         Dot.new x:, y:, has_mine: rand(0...(1.0 / MINES_PROB).to_i).zero?
@@ -23,7 +23,8 @@ class Field
       dot.num_mines_around = each_dot_around(dot).select(&:has_mine).size unless dot.has_mine
     }
 
-    @player = Player.new position: Cursor.new
+    @player = player
+    @player.set_goal mines_total:
   end
 
   def each_dot
@@ -50,7 +51,7 @@ class Field
   end
 
   def draw
-    puts "\e[H\e[2J#{score}\n┏#{'-' * (FIELD_SIZE.last + 2)}┓   Brochure in your pocket tells:"
+    puts "\e[H\e[2J#{score}\n┏#{'┅' * (FIELD_SIZE.last * 2 + 2)}┓   Brochure in your pocket tells:"
     each_dot { |dot|
       print '┃ ' if dot.y.zero?
 
@@ -58,7 +59,7 @@ class Field
 
       print " ┃ #{dot.x}   #{controls[dot.x]}\n" if dot.y.eql? FIELD_SIZE.max
     }
-    puts "┗#{'-' * (FIELD_SIZE.last + 2)}┛"
+    puts "┗#{'┅' * (FIELD_SIZE.last * 2 + 2)}┛"
     puts controls[FIELD_SIZE.last..] if controls.size > FIELD_SIZE.size
 
     @player.draw
@@ -96,17 +97,19 @@ class Field
         return self
       else
         draw
-        return self if @player.damage
-
-        # puts "Mine blows under ... your comrade's drop capsule are you were hurrying to a new position"
-
-        puts "You are torn apart by a mine\n  ... last thing you see is another drop bot piercing clouds"
-        exit 1
-
+        if @player.damage
+          puts "Mine blows under your feet ..."
+          puts "  a huge piece of armor flies away, you thanked The Emperor."
+          TTY::Reader.new.read_keypress
+          return self
+        else
+          puts "You are torn apart by a mine\n  ... last thing you see is another drop bot piercing clouds"
+          exit 1
+        end
       end
     else
       if expect_mine
-        new_field = Field.new
+        new_field = Field.new player: @player
         new_field.draw
         puts "You dug the ground for the whole day, now it's a field on the other side of the world!"
         puts '... any key to look around'
@@ -146,15 +149,21 @@ class Field
   end
 end
 
-field = Field.new
+player = Player.new(position: Cursor.new)
+field = Field.new(player:)
 
 loop {
   field.draw
   field = field.turn
   if field.no_mines_left?
     field.draw
-    puts 'You found all mines, princess Peach is all yours!'
+    if player.goal_reached?
+      puts 'You have found enough mines. It is time to return to return to the flagship!'
+    else
+      puts 'You briefly observed your bagpack, there are not enough mines to return to the ship...'
+      puts 'You should look better, if you survive the discipline'
+    end
     exit 0
   end
-  sleep 0.1
+  sleep 0.2
 }

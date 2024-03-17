@@ -23,8 +23,13 @@ class Player
   end
 
   def draw
-    puts "🪖  #{alive? ? '❤️' : '☠'} #{@hp}"
+    puts "🪖  #{alive? ? '🛡' : '☠'} #{@hp}"
     puts "🗃 inventory\n 💣: #{@mines}"
-    # 🛡 - protection 🛠 - tools to disasemble mines
+    puts "⚑ objective: #{@goal}"
+    # 🛠 - tools to disasemble mines
+  end
+
+  def set_goal mines_total:
+    @goal ||= mines_total - @hp + 3
   end
 end

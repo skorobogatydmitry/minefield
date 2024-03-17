@@ -16,7 +16,7 @@ class Cursor < Dot
   end
 
   def to_char
-    is_revealed ? '?' : '⠀'
+    is_revealed ? '🪖 ' : '⠀'
   end
 
   def up
